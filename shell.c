@@ -29,8 +29,16 @@ void read_input(char **buffer, size_t *n)
 
 	if (bytesRead == -1)
 	{
-		perror("(getline)");
-		exit(EXIT_FAILURE);
+		if (feof(stdin))
+		{
+			printf("\n");
+			exit(EXIT_SUCCESS);
+		}
+		else
+		{
+			perror("(getline)");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if ((*buffer)[bytesRead - 1] == '\n')
@@ -73,19 +81,83 @@ void perse_input(char *input, char **commands, int *num_commands)
 
 void execute_command(char *command, char **arguments, char *argv)
 {
-	pid_t pid;
+    char *path = getenv("PATH");
+    char *path_copy = strdup(path);
+    char *token = strtok(path_copy, ":");
 
-	pid = fork();
-	if (pid == -1)
-	{
-		perror(argv);
-		exit(EXIT_FAILURE);
-	} else if (pid == 0)
-	{
-		execve(command, arguments, NULL);
-		perror(argv);
-		exit(EXIT_FAILURE);
-	}
-	else
-		wait(NULL);
+    while (token != NULL)
+    {
+        char command_path[100];
+        snprintf(command_path, sizeof(command_path), "%s/%s", token, command);
+
+        if (access(command_path, F_OK) == 0)
+        {
+            pid_t pid = fork();
+            if (pid == -1)
+            {
+                perror(argv);
+                exit(EXIT_FAILURE);
+            }
+            else if (pid == 0)
+            {
+                char *exec_arguments[MAX_COMMANDS + 1];
+                exec_arguments[0] = command_path;
+                int i = 1;
+                while (arguments[i - 1] != NULL && i < MAX_COMMANDS + 1)
+                {
+                    exec_arguments[i] = arguments[i - 1];
+                    i++;
+                }
+                exec_arguments[MAX_COMMANDS] = NULL;
+
+                execvp(command_path, exec_arguments);
+                perror(command_path);
+                exit(EXIT_FAILURE);
+            }
+            else
+            {
+                int status;
+                waitpid(pid, &status, 0);
+            }
+            break;
+        }
+
+        token = strtok(NULL, ":");
+    }
+
+    free(path_copy);
+
+    if (token == NULL)
+    {
+        printf("%s: command not found\n", command);
+    }
+}
+
+
+/**
+ * get_command - retrieves the command and arguments from the input
+ * @input: the input from the command line
+ *
+ * Return: an array of strings with the command and arguments
+ */
+char **get_command(char *input)
+{
+    char **command_args = malloc((MAX_COMMANDS + 1) * sizeof(char *));
+    if (command_args == NULL)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    int i = 0;
+    char *token = strtok(input, " \t\n");
+    while (token != NULL && i < MAX_COMMANDS)
+    {
+        command_args[i] = strdup(token);
+        token = strtok(NULL, " \t\n");
+        i++;
+    }
+    command_args[i] = NULL;
+
+    return command_args;
 }
