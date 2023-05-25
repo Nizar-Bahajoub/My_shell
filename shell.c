@@ -81,6 +81,11 @@ void perse_input(char *input, char **commands, int *num_commands)
 
 void execute_command(char *command, char **arguments, char *argv)
 {
+	int status;
+	char *path;
+	char *path_copy;
+	char *token;
+	char command_path[100];
 	pid_t pid = fork();
 
 	if (pid == -1)
@@ -94,14 +99,12 @@ void execute_command(char *command, char **arguments, char *argv)
 			execvp(command, arguments);
 		else
 		{
-			char *path = getenv("PATH");
-			char *path_copy = strdup(path);
-			char *token = strtok(path_copy, ":");
+			path = getenv("PATH");
+			path_copy = strdup(path);
+			token = strtok(path_copy, ":");
 
 			while (token != NULL)
 			{
-				char command_path[100];
-
 				snprintf(command_path, sizeof(command_path), "%s/%s", token, command);
 				execvp(command_path, arguments);
 				token = strtok(NULL, ":");
@@ -113,8 +116,6 @@ void execute_command(char *command, char **arguments, char *argv)
 	}
 	else
 	{
-		int status;
-
 		waitpid(pid, &status, 0);
 	}
 }
@@ -127,6 +128,8 @@ void execute_command(char *command, char **arguments, char *argv)
  */
 char **get_command(char *input)
 {
+	int i;
+	char *token;
 	char **command_args = malloc((MAX_COMMANDS + 1) * sizeof(char *));
 
 	if (command_args == NULL)
@@ -135,8 +138,8 @@ char **get_command(char *input)
 		exit(EXIT_FAILURE);
 	}
 
-	int i = 0;
-	char *token = strtok(input, " \t\n");
+	i = 0;
+	token = strtok(input, " \t\n");
 
 	while (token != NULL && i < MAX_COMMANDS)
 	{
