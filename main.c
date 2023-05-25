@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 		if (num_commands > 0)
 		{
 			char **command_args = get_command(input);
+
 			execute_command(commands[0], commands, argv[0]);
 			for (int i = 0; command_args[i] != NULL; i++)
 			{

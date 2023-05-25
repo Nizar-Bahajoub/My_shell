@@ -81,58 +81,43 @@ void perse_input(char *input, char **commands, int *num_commands)
 
 void execute_command(char *command, char **arguments, char *argv)
 {
-    char *path = getenv("PATH");
-    char *path_copy = strdup(path);
-    char *token = strtok(path_copy, ":");
+	pid_t pid = fork();
 
-    while (token != NULL)
-    {
-        char command_path[100];
-        snprintf(command_path, sizeof(command_path), "%s/%s", token, command);
+	if (pid == -1)
+	{
+		perror(argv);
+		exit(EXIT_FAILURE);
+	}
+	else if (pid == 0)
+	{
+		if (strchr(command, '/') != NULL)
+			execvp(command, arguments);
+		else
+		{
+			char *path = getenv("PATH");
+			char *path_copy = strdup(path);
+			char *token = strtok(path_copy, ":");
 
-        if (access(command_path, F_OK) == 0)
-        {
-            pid_t pid = fork();
-            if (pid == -1)
-            {
-                perror(argv);
-                exit(EXIT_FAILURE);
-            }
-            else if (pid == 0)
-            {
-                char *exec_arguments[MAX_COMMANDS + 1];
-                exec_arguments[0] = command_path;
-                int i = 1;
-                while (arguments[i - 1] != NULL && i < MAX_COMMANDS + 1)
-                {
-                    exec_arguments[i] = arguments[i - 1];
-                    i++;
-                }
-                exec_arguments[MAX_COMMANDS] = NULL;
+			while (token != NULL)
+			{
+				char command_path[100];
 
-                execvp(command_path, exec_arguments);
-                perror(command_path);
-                exit(EXIT_FAILURE);
-            }
-            else
-            {
-                int status;
-                waitpid(pid, &status, 0);
-            }
-            break;
-        }
+				snprintf(command_path, sizeof(command_path), "%s/%s", token, command);
+				execvp(command_path, arguments);
+				token = strtok(NULL, ":");
+			}
+			free(path_copy);
+		}
+		perror(command);
+		exit(EXIT_FAILURE);
+	}
+	else
+	{
+		int status;
 
-        token = strtok(NULL, ":");
-    }
-
-    free(path_copy);
-
-    if (token == NULL)
-    {
-        printf("%s: command not found\n", command);
-    }
+		waitpid(pid, &status, 0);
+	}
 }
-
 
 /**
  * get_command - retrieves the command and arguments from the input
@@ -142,22 +127,24 @@ void execute_command(char *command, char **arguments, char *argv)
  */
 char **get_command(char *input)
 {
-    char **command_args = malloc((MAX_COMMANDS + 1) * sizeof(char *));
-    if (command_args == NULL)
-    {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
+	char **command_args = malloc((MAX_COMMANDS + 1) * sizeof(char *));
 
-    int i = 0;
-    char *token = strtok(input, " \t\n");
-    while (token != NULL && i < MAX_COMMANDS)
-    {
-        command_args[i] = strdup(token);
-        token = strtok(NULL, " \t\n");
-        i++;
-    }
-    command_args[i] = NULL;
+	if (command_args == NULL)
+	{
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
 
-    return command_args;
+	int i = 0;
+	char *token = strtok(input, " \t\n");
+
+	while (token != NULL && i < MAX_COMMANDS)
+	{
+		command_args[i] = strdup(token);
+		token = strtok(NULL, " \t\n");
+		i++;
+	}
+	command_args[i] = NULL;
+
+	return (command_args);
 }
